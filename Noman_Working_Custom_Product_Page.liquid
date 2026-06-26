@@ -1,0 +1,253 @@
+{% comment %} {% capture first_option_value %}
+  {{ product.options_with_values[0].values[0] }}
+{% endcapture %} {% endcomment %}
+
+
+<div class="product-section-wrapper" id="product-{{ section.id }}">
+    <div class="container">
+        <div class="product-section-data-wrapper">
+            <div class="product-gallery-images-wrapper">
+                <div class="product-media-images-wrapper">
+                    <div style="--swiper-navigation-color: #fff; --swiper-pagination-color: #fff" class="swiper mySwiper2">
+                        <div class="swiper-wrapper">
+
+
+                        </div>
+                        <div class="swiper-button-next"></div>
+                        <div class="swiper-button-prev"></div>
+                    </div>
+                </div>
+                <div class="product-product-thumbnail-wrapper">
+                    <div thumbsSlider="" class="swiper mySwiper">
+                        <div class="swiper-wrapper">
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="product-info-wrapper">
+
+            <product-meta data-block-type="meta" data-block-id="{{ section.id }}-{{ product.id }}" class="product-meta">
+                <div class="product-price">
+                        <h1>{{ product.title | escape }}</h1>
+                </div>
+                <div class="product-meta-price-list">
+                    <span class="product-meta-price">{{ product.price | money_with_currency }}</span>
+                    <span class="product-meta-compare-at-price">{{ product.compare_at_price | money_with_currency }}</span>
+                    <span class="product-sold-out-tag hidden" style="color:red;">Sold</span>
+                </div>
+            </product-meta>
+            
+            {% form 'product', product %}
+            <div class="product-form-options-wrapper">
+                <div class="swatches-list-wrapper">
+                    {% for option in product.options_with_values %}
+                        <div class="product-swatch-list" data-option-index="{{ forloop.index }}">
+                            <div class="product-swatches-info">
+                                <span class="option-name">{{ option.name | escape }}</span>
+                                <span class="option-value">{{ option.values[0] }}</span>
+                            </div>
+                            <div class="product-swatches-variants-wrapper">
+                                
+                              {% for value in option.values %}
+                                  <input
+                                  type="radio"
+                                  name="{{ option.name | handlize }}"
+                                  value="{{ value }}"
+                                  id="{{ option.name | handlize }}-{{ value | handlize }}"
+                                  {% if option.selected_value == value %}
+                                  checked
+                                  {% endif %}
+                                  >
+                                  <label for="{{ option.name | handlize }}-{{ value | handlize }}" class="">
+                                      {{ value }}
+                                  </label>
+                              {% endfor %}
+                               
+                            </div>
+                        </div>
+                    {% endfor %}                   
+                </div>
+                {% render 'buy-buttons' %}
+            </div>
+            {% endform %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+  var product = {{ product | json }};
+  console.log(product);
+
+
+  // ✅ FUNCTION MOVED TO TOP (shared scope)
+  function loadSlidesByAlt(altvalue) {
+
+    var upperslider = document.querySelector(".mySwiper2 .swiper-wrapper");
+    var thumbnailslider = document.querySelector(".mySwiper .swiper-wrapper");
+
+    if (!upperslider || !thumbnailslider) return;
+
+    upperslider.innerHTML = '';
+    thumbnailslider.innerHTML = '';
+
+    const matchedMedia = product.media.filter(item =>
+      item.alt && item.alt.trim().toLowerCase() === altvalue
+    );
+
+    matchedMedia.forEach(function (mediaitem) {
+      
+      var slide1 = document.createElement("div");
+      slide1.classList.add("swiper-slide");
+
+      var image = document.createElement("img");
+      image.src = mediaitem.src;
+      image.alt = mediaitem.alt;
+
+      slide1.appendChild(image);
+      upperslider.appendChild(slide1);
+
+      const slide2 = slide1.cloneNode(true);
+      thumbnailslider.appendChild(slide2);
+    });
+
+
+  }     
+
+  var getAllOptions = document.querySelectorAll('.product-swatches-variants-wrapper input[type="radio"] + label');
+  // ✅ CLICK WORKS
+  getAllOptions.forEach(function (el) {
+    el.addEventListener("click", function () {
+
+      getAllOptions.forEach(function (item) {
+        item.classList.remove("option-active");
+      });
+
+      el.classList.add("option-active");
+      const optionIndex = el.closest('.product-swatch-list').dataset.optionIndex;
+      console.log(optionIndex);
+
+      if (optionIndex === "1") {
+       loadSlidesByAlt(el.textContent.trim().toLowerCase());
+      }
+
+      let matchedVariant = null;
+      setTimeout(() => {
+        const selectedOptions = Array.from(document.querySelectorAll('.product-swatches-variants-wrapper input[type="radio"]:checked + label')).map(i => i.textContent.trim());
+        console.log(selectedOptions);
+
+        matchedVariant = product.variants.find(variant => JSON.stringify(variant.options) === JSON.stringify(selectedOptions));
+        console.log(matchedVariant);
+
+
+
+        const url = new URL(window.location.href);
+        console.log(url);
+        url.searchParams.set("variant", matchedVariant.id);
+        window.history.replaceState(null, null, url.toString());
+
+        const price = document.querySelector(".product-meta-price");
+        price.textContent = formatMoney(matchedVariant.price, "{{ shop.money_format }}")
+
+        var productSubmitButton = document.querySelector(".product-form__submit");
+        const soldouttag = document.querySelector(".product-sold-out-tag");
+        if (!matchedVariant || !matchedVariant.available) {
+          soldouttag.classList.remove("hidden");
+          productSubmitButton.setAttribute("disabled", "true");
+          productSubmitButton.textContent = "Sold Out";
+        }
+        else{
+          soldouttag.classList.add("hidden");
+          productSubmitButton.removeAttribute("disabled");
+          productSubmitButton.textContent = "Add to Cart";
+        }
+
+        const buttonvariantid = document.querySelector(".product-form .product-variant-id").value = matchedVariant.id ;
+        console.log(buttonvariantid);
+
+
+      }, 0);
+
+    });
+  });
+
+  // ✅ LOAD WORKS
+  document.addEventListener("DOMContentLoaded", function () {
+    const defaultcheckedinput =
+      document.querySelector('.product-swatches-variants-wrapper input[type="radio"]:checked') ||
+      document.querySelector('.product-swatches-variants-wrapper input[type="radio"]:not(:disabled)');
+
+      if (defaultcheckedinput && defaultcheckedinput.nextElementSibling) {
+        const altvalue = defaultcheckedinput.nextElementSibling.textContent.trim().toLowerCase();
+        loadSlidesByAlt(altvalue);
+      }
+  });
+  
+
+
+
+</script>
+
+
+  <!-- Swiper JS -->
+  <script src="https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js"></script>
+
+  <!-- Initialize Swiper -->
+  <script>
+    var swiper = new Swiper(".mySwiper", {
+      spaceBetween: 10,
+      slidesPerView: 4,
+      freeMode: true,
+      watchSlidesProgress: true,
+    });
+    var swiper2 = new Swiper(".mySwiper2", {
+      spaceBetween: 10,
+      navigation: {
+        nextEl: ".swiper-button-next",
+        prevEl: ".swiper-button-prev",
+      },
+      thumbs: {
+        swiper: swiper,
+      },
+    });
+  </script>
+
+
+
+{% schema %}
+{
+  "name": "Custom Product",
+  "tag": "section",
+  "class": "custom-product-page",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Section Data"
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "label": "Heading"
+    }
+  ],
+  "presets": [
+    {
+     "name": "Custom Product"
+    }
+  ]
+}
+{% endschema %}
+
+
+ {% comment %} const matchedVariant = product.variants.find( variant =>variant.options.includes(el.textContent.trim() )); {% endcomment %}
+
+{% comment %} const selectedValue = el.textContent.trim().toLowerCase();
+
+const matchedVariant = product.variants.find(variant =>
+  variant.options.some(option =>
+    option.toLowerCase() === selectedValue
+  )
+); {% endcomment %}
